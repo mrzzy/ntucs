@@ -79,3 +79,6 @@ Module.symvers
 Mkfile.old
 dkms.conf
 
+# clangd
+.cache/
+compile_commands.json
