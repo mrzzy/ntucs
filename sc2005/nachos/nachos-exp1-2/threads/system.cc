@@ -91,7 +91,7 @@ Initialize(int argc, char **argv)
 
   int argCount;
     char* debugArgs = "";
-    bool randomYield = FALSE;
+    bool randomYield = TRUE;
 
 #ifdef USER_PROGRAM
     bool debugUserProg = FALSE;	// single step user program

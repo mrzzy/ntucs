@@ -112,6 +112,8 @@ class Interrupt {
     
     void OneTick();       		// Advance simulated time
 
+    void Remove(); // remove next in line pending interrupt
+
   private:
     IntStatus level;		// are interrupts enabled or disabled?
     List *pending;		// the list of interrupts scheduled

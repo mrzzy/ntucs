@@ -26,6 +26,16 @@
 
 /* Experiment 2 */
 /* Add code to remove pending interrupt from head of pending list. */
+//----------------------------------------------------------------------
+// Interrupt::Remove
+//  Removes the pending interrupt next in line to trigger.
+//  Does nothing if no such interrupt exists
+//----------------------------------------------------------------------
+void Interrupt::Remove() {
+    if (!pending->IsEmpty()){
+        delete pending->Remove();
+    }
+}
 
 // String definitions for debugging messages
 

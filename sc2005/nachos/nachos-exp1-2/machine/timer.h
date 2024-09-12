@@ -32,7 +32,7 @@ class Timer {
     ~Timer() {}
 
 // Internal routines to the timer emulation -- DO NOT call these
-
+    void schedule(); // schedule timer interrupt 
     void TimerExpired();	// called internally when the hardware
 				// timer generates an interrupt
 

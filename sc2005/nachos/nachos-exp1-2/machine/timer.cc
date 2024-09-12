@@ -48,9 +48,18 @@ Timer::Timer(VoidFunctionPtr timerHandler, _int callArg, bool doRandom)
     arg = callArg; 
 
     // schedule the first interrupt from the timer device
-    interrupt->Schedule(TimerHandler, (_int) this, TimeOfNextInterrupt(), 
-		TimerInt); 
+    schedule();
 }
+//----------------------------------------------------------------------
+// Timer::schedule
+//      Schedule timer interrupt for the timer
+//----------------------------------------------------------------------
+void Timer::schedule() {
+    interrupt->Schedule(TimerHandler, (_int) this, TimeOfNextInterrupt(), 
+            TimerInt); 
+
+}
+
 
 //----------------------------------------------------------------------
 // Timer::TimerExpired
@@ -62,9 +71,10 @@ Timer::TimerExpired()
 {
     /* Experiment 2 */
     /* Add code below to make the timer periodic. */
-    
     // invoke the Nachos interrupt handler for this device
     (*handler)(arg);
+    // reschedule timer for next invocation
+    schedule();
 }
 
 //----------------------------------------------------------------------
@@ -79,9 +89,5 @@ Timer::TimeOfNextInterrupt()
 
   /* Experiment 2 */
   /* Update below code so that it returns a fixed time quantum of 40 time ticks */
-  
-    if (randomize)
-	return 1 + (Random() % (TimerTicks * 2));
-    else
-	return TimerTicks; 
+	return 40; 
 }

@@ -21,6 +21,7 @@
 #include "switch.h"
 #include "synch.h"
 #include "system.h"
+#include "interrupt.h"
 
 #define STACK_FENCEPOST 0xdeadbeef	// this is put at the top of the
 					// execution stack, for detecting 
@@ -206,6 +207,10 @@ Thread::Finish ()
 	/* Add code here to reset the timer interrupt so that the next 
 	   interrupt is triggered after 40 time ticks from now.
         */
+    // remove existing timer interrupt
+    interrupt->Remove();
+    // schedule new timer interrupt with 40 time ticks
+    timer->schedule();
     
 	Sleep();					// invokes SWITCH
     }
