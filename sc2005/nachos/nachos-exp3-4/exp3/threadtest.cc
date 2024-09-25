@@ -11,6 +11,7 @@
 
 #include "copyright.h"
 #include "system.h"
+#include <string>
 
 //----------------------------------------------------------------------
 // Inc and Dec execute value++ and value-- for twice.
@@ -47,12 +48,22 @@ void Dec(_int which)
 void Inc_v1(_int which)
 {
 	//fill your code
+	int a=value;
+	// only yield on first inc thread to create interweaving necessary for value = 1
+	if(which == 0) currentThread->Yield();
+	a++;
+	value=a;
+	printf("**** Inc thread %d new value %d\n", (int) which, value);
 }
 
 //2. implement the new version of Dec: Dec_v1
 void Dec_v1(_int which)
 {
 	//fill your code
+	int a=value;
+	a--;
+	value=a;
+	printf("**** Dec thread %d new value %d\n", (int) which, value);
 }
 
 //3. implement TestValueOne by create two threads with Inc_v1 and two threads with Dec_v1
@@ -62,7 +73,25 @@ void TestValueOne()
 	value=0;
 	printf("enter TestValueOne, value=%d...\n", value);
 	//1. fill your code here.
+	Thread *threads[4];
+	const int nTypes = 2;
+	const int nThreads = 2;
 
+	// 2 thread types: Inc_v1, Dec_v1
+	for(int type = 0; type < nTypes; type ++) {
+		// spin up 2 threads of each type
+		for(int t = 0; t < nThreads; t ++) {
+			int threadId = type * nTypes + t;
+			std::string name = "child " + threadId;
+			threads[threadId] = new Thread(&name[0]);
+			threads[threadId]->Fork((type == 0) ? Inc_v1 : Dec_v1, t, 1);
+		}
+	}
+	
+	// join all child threads
+	for(int t = 0; t < nTypes * nThreads; t ++) {
+		currentThread->Join(threads[t]);
+	}
 
 	//2. checking the value. you should not modify the code or add any code lines behind
 	//this section.
@@ -79,12 +108,22 @@ void TestValueOne()
 void Inc_v2(_int which)
 {
 	//fill your code
+	int a=value;
+	a++;
+	value=a;
+	printf("**** Inc thread %d new value %d\n", (int) which, value);
 }
 
 //2. implement the new version of Dec: Dec_v2
 void Dec_v2(_int which)
 {
 	//fill your code
+	int a=value;
+	// only yield on first dec thread to create interweaving necessary for value = 1
+	if(which == 0) currentThread->Yield();
+	a--;
+	value=a;
+	printf("**** Dec thread %d new value %d\n", (int) which, value);
 }
 
 //3. implement TestValueMinusOne by create two threads with Inc_v2 and two threads with Dec_v2
@@ -96,6 +135,25 @@ void TestValueMinusOne()
 
 
 	//fill your code
+	Thread *threads[4];
+	const int nTypes = 2;
+	const int nThreads = 2;
+
+	// 2 thread types: Dec_v2, Inc_V2
+	for(int type = 0; type < nTypes; type ++) {
+		// spin up 2 threads of each type
+		for(int t = 0; t < nThreads; t ++) {
+			int threadId = type * nTypes + t;
+			std::string name = "child " + threadId;
+			threads[threadId] = new Thread(&name[0]);
+			threads[threadId]->Fork((type == 0) ? Dec_v2 : Inc_v2, t, 1);
+		}
+	}
+	
+	// join all child threads
+	for(int t = 0; t < nTypes * nThreads; t ++) {
+		currentThread->Join(threads[t]);
+	}
 
 
 	//2. checking the value. you should not modify the code or add any code lines behind
@@ -111,6 +169,7 @@ void TestValueMinusOne()
 //no matter what kind of interleaving occurs, the result value should be consistent.
 
 //1. Declare any paramters here.
+Lock *valueLock;
 
 //fill your code
 
@@ -118,12 +177,24 @@ void TestValueMinusOne()
 void Inc_Consistent(_int which)
 {
 	//fill your code
+	valueLock->Acquire();
+	int a=value;
+	a++;
+	value=a;
+	valueLock->Release();
+	printf("**** Inc thread %d new value %d\n", (int) which, value);
 }
 
 //3. implement the new version of Dec: Dec_Consistent
 void Dec_Consistent(_int which)
 {
 	//fill your code
+	valueLock->Acquire();
+	int a=value;
+	a--;
+	value=a;
+	printf("**** Dec thread %d new value %d\n", (int) which, value);
+	valueLock->Release();
 }
 
 //4. implement TestValueMinusOne by create two threads with Inc_Consistent and two threads with Dec_Consistent
@@ -134,6 +205,29 @@ void TestConsistency()
 	printf("enter TestConsistency, value=%d...\n", value);
 
 	//fill your code
+	valueLock = new Lock("value lock");
+
+	Thread *threads[4];
+	const int nTypes = 2;
+	const int nThreads = 2;
+
+	// 2 thread types: Inc_Consistent, Dec_Consistent
+	for(int type = 0; type < nTypes; type ++) {
+		// spin up 2 threads of each type
+		for(int t = 0; t < nThreads; t ++) {
+			int threadId = type * nTypes + t;
+			std::string name = "child " + threadId;
+			threads[threadId] = new Thread(&name[0]);
+			threads[threadId]->Fork((type == 0) ? Inc_Consistent : Dec_Consistent, t, 1);
+		}
+	}
+	
+	// join all child threads
+	for(int t = 0; t < nTypes * nThreads; t ++) {
+		currentThread->Join(threads[t]);
+	}
+
+	delete valueLock;
 
 
 	//2. checking the value. you should not modify the code or add any code lines behind
@@ -151,8 +245,8 @@ ThreadTest()
 	int loopTimes=0;
     DEBUG('t', "Entering SimpleTest");
 	//for exercise 1.
-    TestValueOne();
-    //TestValueMinusOne();
+    // TestValueOne();
+    // TestValueMinusOne();
     //for exercise 2.
-    //TestConsistency();
+    TestConsistency();
 }
