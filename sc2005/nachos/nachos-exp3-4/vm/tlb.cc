@@ -5,7 +5,10 @@
 #include "thread.h"
 #include "system.h"
 #include "utility.h"
+#include <limits>
+#include <iostream>
 
+bool hasPagedOut = false;
 //----------------------------------------------------------------------
 // UpdateTLB
 //      Called when exception is raised and a page isn't in the TLB.
@@ -44,6 +47,17 @@ int VpnToPhyPage(int vpn)
 {
   //your code here to get a physical frame for page vpn
   //you can refer to PageOutPageIn(int vpn) to see how an entry was created in ipt
+  for(int i = 0; i < NumPhysPages; i++) {
+    if(
+      memoryTable[i].valid &&
+      memoryTable[i].pid == currentThread->pid &&
+      memoryTable[i].vPage == vpn
+    ) {
+      return i;
+    }
+  }
+  // virtual page not mapped to phyPage
+  return -1;
 }
 
 //----------------------------------------------------------------------
@@ -54,10 +68,33 @@ int VpnToPhyPage(int vpn)
 
 void InsertToTLB(int vpn, int phyPage)
 {
-  int i = 0; //entry in the TLB
-  
+  int i = -1; //entry in the TLB
+
   //your code to find an empty in TLB or to replace the oldest entry if TLB is full
+  static int fifoOldest = 0; // fifo pointer to the next oldest page
+  // search for invalid entry in tlb to replace (if any)
+  for(int j = 0; j < TLBSize; j++) {
+    if(!machine->tlb[j].valid) {
+      i = j;
+      break;
+    }
+  }
+  if(i == -1) {
+    // no invalid page to evict: evict the next oldest page FIFO
+    i = fifoOldest;
+  }
   
+  // advance fifo oldest to next oldest page.
+  fifoOldest = (i+1) % TLBSize;
+  // dump TLB before replacement for Table1.csv
+  for(int j = 0; j < TLBSize; j++) {
+    std::cout <<
+        machine->tlb[j].virtualPage << "," <<
+        machine->tlb[j].physicalPage << "," <<
+        machine->tlb[j].valid << ((i == j) ? "*" : "") << ";";
+  }
+  std::cout << ((hasPagedOut) ? "Y" : "N") << std::endl;
+
   // copy dirty data to memoryTable
   if(machine->tlb[i].valid){
     memoryTable[machine->tlb[i].physicalPage].dirty=machine->tlb[i].dirty;
@@ -98,6 +135,18 @@ int PageOutPageIn(int vpn)
   stats->numPageFaults++;
   //call the LRU algorithm, which returns the freed physical frame
   phyPage=lruAlgorithm();
+
+  // dump IPT on page miss for Table1.csv
+  std::cout << ">>>" << stats->totalTicks << ";" << vpn << ";" << currentThread->pid << ";";
+  for(int i = 0; i < NumPhysPages; i++) {
+    std::cout <<
+      memoryTable[i].pid << "," <<
+      memoryTable[i].vPage << "," <<
+      memoryTable[i].lastUsed << "," <<
+      memoryTable[i].valid <<
+      ((i == phyPage) ? "*" : "") << ";";
+  }
+  hasPagedOut = memoryTable[phyPage].valid;
   
   //Page out the victim page to free the physical frame
   DoPageOut(phyPage);
@@ -135,8 +184,6 @@ void DoPageOut(int phyPage)
     }
     if(memoryTable[phyPage].dirty){        // pageOut is necessary
       if((mmapPtr=GetMmap(memoryTable[phyPage].vPage))){ // it's mmaped
-        DEBUG('p', "mmap paging out: pid %i, phyPage %i, vpn %i\n",
-          memoryTable[phyPage].pid, phyPage, memoryTable[phyPage].vPage);
         if(memoryTable[phyPage].vPage==mmapPtr->endPage)
           mmapBytesToWrite=mmapPtr->lastPageLength;
         else
@@ -146,8 +193,6 @@ void DoPageOut(int phyPage)
             (memoryTable[phyPage].vPage-mmapPtr->beginPage)*PageSize);
         ASSERT(mmapBytesToWrite==numBytesWritten);
       } else { // it's not mmaped
-        DEBUG('p', "paging out: pid %i, phyPage %i, vpn %i\n",
-          memoryTable[phyPage].pid, phyPage, memoryTable[phyPage].vPage);
         numBytesWritten=memoryTable[phyPage].swapPtr->
           WriteAt(machine->mainMemory+phyPage*PageSize, PageSize,
             memoryTable[phyPage].vPage*PageSize);
@@ -174,8 +219,6 @@ void DoPageIn(int vpn, int phyPage)
   int mmapBytesToRead;
 
   if((mmapPtr=GetMmap(vpn))){ // mmaped file
-    DEBUG('p', "mmap paging in: pid %i, phyPage %i, vpn %i\n",
-      currentThread->pid, phyPage, vpn);
     if(vpn==mmapPtr->endPage)
       mmapBytesToRead=mmapPtr->lastPageLength;
     else
@@ -186,8 +229,6 @@ void DoPageIn(int vpn, int phyPage)
                 (vpn-mmapPtr->beginPage)*PageSize);
     ASSERT(numBytesRead==mmapBytesToRead);
   } else { // not mmaped
-    DEBUG('p', "paging in: pid %i, phyPage %i, vpn %i\n", currentThread->pid,
-      phyPage, vpn);
     numBytesRead=currentThread->space->swapPtr->ReadAt(machine->mainMemory+
                    phyPage*PageSize,
                    PageSize,
@@ -208,6 +249,24 @@ int lruAlgorithm(void)
   //your code here to find the physical frame that should be freed 
   //according to the LRU algorithm. 
   int phyPage;
+
+  // scan IPT for invalid page to evict
+  for (int i = 0; i < NumPhysPages; i++) {
+    if(!memoryTable[i].valid) {
+      // evict invalid page
+      return i;
+    }
+  }
+  
+  // no invalid page to evict
+  // scan IPT for least recently used page to evict
+  int minUsedTime = std::numeric_limits<int>::max();
+  for (int i = 0; i < NumPhysPages; i++) {
+    if(memoryTable[i].lastUsed < minUsedTime) {
+      phyPage = i;
+      minUsedTime = memoryTable[i].lastUsed;
+    }
+  }
   
   return phyPage;
 }
