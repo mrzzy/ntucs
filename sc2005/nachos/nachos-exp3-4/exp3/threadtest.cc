@@ -119,7 +119,7 @@ void Dec_v2(_int which)
 {
 	//fill your code
 	int a=value;
-	// only yield on first dec thread to create interweaving necessary for value = 1
+	// only yield on first dec thread to create interweaving necessary for value = -1
 	if(which == 0) currentThread->Yield();
 	a--;
 	value=a;
